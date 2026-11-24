@@ -16,7 +16,7 @@ jobs:
   linux-dsp:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Build DSP core and test-suite
         run: |
           cmake -S . -B build-tools -DWARMFUL_BUILD_PLUGIN=OFF -DCMAKE_BUILD_TYPE=Release
@@ -27,7 +27,7 @@ jobs:
   windows:
     runs-on: windows-2022
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Configure (MSVC x64)
         run: cmake -S . -B build -G "Visual Studio 17 2022" -A x64
@@ -61,13 +61,17 @@ jobs:
           }
           Invoke-WebRequest https://github.com/Tracktion/pluginval/releases/latest/download/pluginval_Windows.zip -OutFile pluginval.zip
           Expand-Archive pluginval.zip -DestinationPath pluginval
-          & .\pluginval\pluginval.exe --strictness-level 10 --validate-in-process --validate "$vst3Dir\WARMFUL.vst3"
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          $u = Start-Process "$appDir\unins000.exe" -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART' -Wait -PassThru
-          Start-Sleep -Seconds 3
+          # pluginval.exe is a GUI-subsystem app: PowerShell's `&` would not wait for it.
+          $pv = Start-Process .\pluginval\pluginval.exe -ArgumentList '--strictness-level', '10', '--validate-in-process', '--validate', "`"$vst3Dir\WARMFUL.vst3`"" -NoNewWindow -Wait -PassThru -RedirectStandardOutput pluginval.log -RedirectStandardError pluginval.err
+          Get-Content pluginval.log, pluginval.err
+          if ($pv.ExitCode -ne 0 -or -not (Select-String -Path pluginval.log -Pattern '^SUCCESS' -Quiet)) { Write-Error "pluginval failed (exit $($pv.ExitCode))"; exit 1 }
+          # The Inno uninstaller relaunches itself from %TEMP%, so wait for the files to disappear.
+          Start-Process "$appDir\unins000.exe" -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART' -Wait
+          for ($i = 0; $i -lt 60 -and (Test-Path "$vst3Dir\WARMFUL.vst3"); $i++) { Start-Sleep -Seconds 1 }
           if (Test-Path "$vst3Dir\WARMFUL.vst3") { Write-Error "uninstaller left the VST3 behind"; exit 1 }
+          if (Test-Path "$appDir\WARMFUL.exe") { Write-Error "uninstaller left the app behind"; exit 1 }
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: WARMFUL-Windows-Setup
           path: build/installer/*.exe
