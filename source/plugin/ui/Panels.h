@@ -71,8 +71,9 @@ private:
 
     WarmfulProcessor& processor;
     Mode mode;
+    static constexpr int kFactoryBank = 4;   // tab after BANK A..D (browser only)
     int bank = 0, selected = -1;
-    std::array<juce::TextButton, 4> bankButtons;
+    std::array<juce::TextButton, 5> bankButtons;
     std::array<juce::TextButton, 20> slotButtons;
     juce::TextButton save { "SAVE" };
     juce::Label hint;

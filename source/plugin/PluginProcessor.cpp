@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: CC-BY-NC-SA-4.0
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
+#include "FactoryPresets.h"
 
 namespace warmful
 {
@@ -335,6 +336,7 @@ void WarmfulProcessor::savePreset (int slot)
 {
     presetBank.put (slot, capturePreset());
     currentPreset.store (slot);
+    currentFactory.store (-1);
 }
 
 bool WarmfulProcessor::loadPreset (int slot)
@@ -344,6 +346,37 @@ bool WarmfulProcessor::loadPreset (int slot)
         return false;
     applyPreset (presetBank.get (slot));
     currentPreset.store (slot);
+    currentFactory.store (-1);
+    return true;
+}
+
+bool WarmfulProcessor::loadFactoryPreset (int index)
+{
+    const auto presets = factoryPresets();
+    if (index < 0 || index >= (int) presets.size())
+        return false;
+    const auto& f = presets[(size_t) index];
+
+    // A factory preset is a complete preset: everything a user preset stores is set.
+    for (size_t k = 0; k < (size_t) kNumPrimary; ++k)
+    {
+        setParam (params::kPrimaryIds[k], f.primary[k]);
+        setParam (params::kSecondaryIds[k], f.secondary[k]);
+    }
+    for (size_t m = 0; m < (size_t) kNumModules; ++m)
+    {
+        setParam (params::kEffectIds[m], (float) f.effect[m]);
+        setParam (params::kModuleOnIds[m], f.moduleOn[m] ? 1.0f : 0.0f);
+        setParam (params::kDualMaskIds[m], 1.0f);
+    }
+    setParam (params::kOrder, (float) params::orderIndexOf (f.order));
+    setParam (params::kFilterStyle, (float) f.filterStyle);
+    setParam (params::kCaptureRouting, 0.0f);
+    setParam (params::kExpTarget, 0.0f);
+    engine.setGestureSnapshot ({});
+
+    currentFactory.store (index);
+    currentPreset.store (-1);
     return true;
 }
 
@@ -355,6 +388,7 @@ void WarmfulProcessor::getStateInformation (juce::MemoryBlock& destData)
     tree.removeChild (tree.getChildWithName ("GESTURE"), nullptr);
     tree.appendChild (gestureToTree (engine.getGestureSnapshot()), nullptr);
     tree.setProperty ("currentPreset", currentPreset.load(), nullptr);
+    tree.setProperty ("currentFactory", currentFactory.load(), nullptr);
     if (auto xml = tree.createXml())
         copyXmlToBinary (*xml, destData);
 }
@@ -369,7 +403,9 @@ void WarmfulProcessor::setStateInformation (const void* data, int sizeInBytes)
     engine.setGestureSnapshot (treeToGesture (gesture));
     tree.removeChild (gesture, nullptr);
     currentPreset.store ((int) tree.getProperty ("currentPreset", -1));
+    currentFactory.store ((int) tree.getProperty ("currentFactory", -1));
     tree.removeProperty ("currentPreset", nullptr);
+    tree.removeProperty ("currentFactory", nullptr);
     state.replaceState (tree);
 }
 

@@ -59,6 +59,9 @@ public:
     void savePreset (int slot);
     bool loadPreset (int slot);
     int getCurrentPreset() const noexcept { return currentPreset.load(); }
+    /** Read-only factory bank (FactoryPresets.h); loading one clears the user-slot selection. */
+    bool loadFactoryPreset (int index);
+    int getCurrentFactoryPreset() const noexcept { return currentFactory.load(); }
     PresetBank& getPresetBank() noexcept { return presetBank; }
 
     /** Sets a parameter by ID in plain units (index for choices), as a host-visible gesture. */
@@ -88,6 +91,7 @@ private:
 
     juce::AudioBuffer<float> scratch;
     std::atomic<int> currentPreset { -1 };
+    std::atomic<int> currentFactory { -1 };
     std::atomic<int> pendingProgram { -1 };
     std::atomic<int> pendingMidiTaps { 0 };
 

@@ -1,14 +1,18 @@
 // WARMFUL — offline renderer and DSP test-suite (no JUCE needed).
 //   warmful_render test                         run the DSP checks (non-zero exit on failure)
 //   warmful_render demo <dir> [--sr N]          render every effect at several settings
+//   warmful_render presets <dir>                render the factory presets (and print their level)
+//   warmful_render presets-md                   print docs/PRESETS.md
 //   warmful_render render <in.wav> <out.wav> [options]   process a file like the plugin would
 // SPDX-License-Identifier: CC-BY-NC-SA-4.0
 
 #include "Engine.h"
+#include "FactoryPresets.h"
 #include "Oversampler.h"
 #include "Modulation.h"
 #include "Wav.h"
 
+#include <cctype>
 #include <chrono>
 #include <cstdio>
 #include <filesystem>
@@ -593,6 +597,33 @@ void testEngine (Runner& t, double sr)
     }
 }
 
+/** Renders a factory preset over the test guitar (MEDIUM calibration, -18 dBFS peaks). */
+wav::Audio renderPreset (const FactoryPreset& preset, double sr, double& levelChangeDb)
+{
+    Engine engine;
+    engine.prepare (sr, 256);
+    const auto in = guitar (sr, 8.0, 0.125f);
+    auto out = in;
+    runEngine (engine, out, toEngineParams (preset));
+    const size_t from = (size_t) (0.5 * sr);
+    levelChangeDb = db (stats (out, from).rms / stats (in, from).rms);
+    return out;
+}
+
+void testFactoryPresets (Runner& t, double sr)
+{
+    std::printf ("\n[factory presets @ %.0f Hz]  level change vs. dry, output peak\n", sr);
+    for (const auto& preset : factoryPresets())
+    {
+        double change = 0.0;
+        const auto out = renderPreset (preset, sr, change);
+        const auto s = stats (out);
+        std::printf ("  %-24s %+5.1f dB   peak %.3f\n", preset.name, change, s.peak);
+        t.check (s.finite && s.peak < 0.9, std::string (preset.name) + " finite, no clipping");
+        t.check (std::abs (change) < 3.0, std::string (preset.name) + " within 3 dB of the dry level");
+    }
+}
+
 int runTests()
 {
     enableFlushToZero();
@@ -607,6 +638,7 @@ int runTests()
         testSpecifics (t, sr);
         std::printf ("\n[engine @ %.0f Hz]\n", sr);
         testEngine (t, sr);
+        testFactoryPresets (t, sr);
     }
     std::printf ("\n%d/%d checks passed\n", t.checks - t.failures, t.checks);
     return t.failures == 0 ? 0 : 1;
@@ -650,7 +682,8 @@ int runRender (int argc, char** argv)
         std::fprintf (stderr, "usage: warmful_render render in.wav out.wav [--char N|off] [--move N|off] [--diff N|off] [--tex N|off]\n"
                               "       [--tilt v] [--char-amount v] [--rate v] [--move-amount v] [--time v] [--diff-amount v] [--mix v] [--tex-amount v]\n"
                               "       [--sens v] [--drift-move v] [--drift-diff v] [--out v] [--cal 0-3] [--bpm v --sync] [--order 0123]\n"
-                              "       [--filter lpf|tilt|hpf]   (knob values are 0..1 like the pedal; effects default to off)\n");
+                              "       [--filter lpf|tilt|hpf] [--preset N]   (knobs are 0..1 like the pedal; effects default to off;\n"
+                              "       --preset loads factory preset N (1-based) first, later options override it)\n");
         return 2;
     }
     enableFlushToZero();
@@ -689,6 +722,14 @@ int runRender (int argc, char** argv)
         else if (key == "--sync") p.tempo.synced = true;
         else if (key == "--order") { ++i; for (size_t k = 0; k < 4 && k < val.size(); ++k) p.order[k] = val[k] - '0'; }
         else if (key == "--filter") { ++i; p.filterStyle = val == "lpf" ? FilterStyle::LowPass : (val == "hpf" ? FilterStyle::HighPass : FilterStyle::Tilt); }
+        else if (key == "--preset")
+        {
+            ++i;
+            const auto presets = factoryPresets();
+            const int index = std::stoi (val) - 1;
+            if (index < 0 || index >= (int) presets.size()) { std::fprintf (stderr, "--preset must be 1..%zu\n", presets.size()); return 2; }
+            p = toEngineParams (presets[(size_t) index], p);
+        }
         else { std::fprintf (stderr, "unknown option %s\n", key.c_str()); return 2; }
     }
 
@@ -696,6 +737,56 @@ int runRender (int argc, char** argv)
     engine.prepare (a.sampleRate, 256);
     runEngine (engine, a, p);
     if (! wav::write (argv[3], a)) { std::fprintf (stderr, "cannot write %s\n", argv[3]); return 1; }
+    return 0;
+}
+
+/** Knob position as a clock face: 7:00 = fully left, 12:00 = centre, 5:00 = fully right. */
+std::string clock (float v)
+{
+    const int minutes = (int) std::lround ((7.0 + 10.0 * (double) clamp (v, 0.0f, 1.0f)) * 60.0 / 15.0) * 15;
+    const int h = (minutes / 60 - 1) % 12 + 1;
+    char text[16];
+    std::snprintf (text, sizeof text, "%d:%02d", h, minutes % 60);
+    return text;
+}
+
+/** Markdown description of the factory bank, for the plug-in and for dialling it on the pedal. */
+int printPresetsMarkdown()
+{
+    constexpr const char* modules[] { "CHARACTER", "MOVEMENT", "DIFFUSION", "TEXTURE" };
+    constexpr const char* filterStyles[] { "Low-Pass", "Tilt", "High-Pass" };
+    std::printf ("# WARMFUL factory presets\n\n"
+                 "Generated by `warmful_render presets-md > docs/PRESETS.md` from `source/dsp/FactoryPresets.cpp`.\n\n"
+                 "All presets assume **MEDIUM** calibration and MIX at 100 %%. Values are pot positions in %% and as a\n"
+                 "clock face (7:00 = fully left, 12:00 = centre, 5:00 = fully right), so they can also be dialled on a\n"
+                 "physical pedal; the plug-in is a behavioural model, so expect to fine-tune by ear there.\n"
+                 "Secondary controls are set in the SECONDARY menu (A+B); routing in FX SETUP (A+D).\n");
+    const auto presets = factoryPresets();
+    for (size_t i = 0; i < presets.size(); ++i)
+    {
+        const auto& f = presets[i];
+        std::printf ("\n## %zu. %s\n\n%s\n\nRouting: ", i + 1, f.name, f.description);
+        for (int s = 0; s < kNumModules; ++s)
+            std::printf ("%s%s", modules[f.order[(size_t) s]], s < kNumModules - 1 ? " → " : "\n\n");
+        std::printf ("| Module | Effect | Top knob | AMOUNT | Secondary |\n|---|---|---|---|---|\n");
+        for (int m = 0; m < kNumModules; ++m)
+        {
+            const auto pm = (size_t) m;
+            std::string effect = kEffectNames[m][f.effect[pm]];
+            for (auto& ch : effect) ch = (char) std::toupper ((unsigned char) ch);
+            if (! f.moduleOn[pm]) effect += " (OFF)";
+            if (m == 3 && f.effect[pm] == 0) effect += std::string (" (") + filterStyles[(int) f.filterStyle] + ")";
+            const float top = f.primary[(size_t) (2 * m)];
+            const float amount = f.primary[(size_t) (2 * m + 1)];
+            constexpr const char* topNames[] { "TILT", "RATE", "TIME", "MIX" };
+            constexpr const char* secNames[] { "SENSITIVITY", "DRIFT", "DRIFT", "OUTPUT LEVEL" };
+            const float sec = f.secondary[(size_t) (2 * m)], vol = f.secondary[(size_t) (2 * m + 1)];
+            std::printf ("| %s | %s | %s %d%% (%s) | %d%% (%s) | %s %d%% (%s), EFFECT VOL %d%% (%s) |\n",
+                         modules[m], effect.c_str(), topNames[m], (int) std::lround (top * 100), clock (top).c_str(),
+                         (int) std::lround (amount * 100), clock (amount).c_str(), secNames[m], (int) std::lround (sec * 100),
+                         clock (sec).c_str(), (int) std::lround (vol * 100), clock (vol).c_str());
+        }
+    }
     return 0;
 }
 
@@ -713,6 +804,23 @@ int main (int argc, char** argv)
         return runDemo (argv[2], sr);
     }
     if (cmd == "render") return runRender (argc, argv);
-    std::fprintf (stderr, "usage: warmful_render test | demo <dir> [--sr N] | render <in.wav> <out.wav> [options]\n");
+    if (cmd == "presets-md") return printPresetsMarkdown();
+    if (cmd == "presets" && argc > 2)
+    {
+        enableFlushToZero();
+        std::filesystem::create_directories (argv[2]);
+        const auto presets = factoryPresets();
+        for (size_t i = 0; i < presets.size(); ++i)
+        {
+            double change = 0.0;
+            const auto out = renderPreset (presets[i], 48000.0, change);
+            std::string name = presets[i].name;
+            std::replace (name.begin(), name.end(), ' ', '_');
+            wav::write (std::string (argv[2]) + "/" + std::to_string (i + 1) + "_" + name + ".wav", out);
+            std::printf ("%2zu  %-24s %+5.1f dB\n", i + 1, presets[i].name, change);
+        }
+        return 0;
+    }
+    std::fprintf (stderr, "usage: warmful_render test | demo <dir> [--sr N] | presets <dir> | presets-md | render <in.wav> <out.wav> [options]\n");
     return 2;
 }

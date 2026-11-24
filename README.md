@@ -95,6 +95,29 @@ User presets live in `~/.config/WARMFUL/user_presets.xml` (Linux), `~/Library/Ap
 (macOS) or `%APPDATA%\WARMFUL\` (Windows) and are shared by every instance, like the pedal's memory.
 CAPTURE loops are not stored, as on the pedal.
 
+### Factory presets: the MKG set
+
+A read-only **FACTORY** tab in the preset browser (hold BYPASS) holds ten sounds inspired by Mk.gee's
+publicly documented rig (not endorsed by him). Each piece of his chain is mapped onto the module that
+plays its role, including the module order. Load one, tweak it, and COPY/SAVE it into a user slot.
+All of them assume MEDIUM calibration and are level-matched to within 1 dB of the dry signal.
+
+| Preset | Idea |
+|---|---|
+| MKG 424 Edge | Jaguar into a pushed Tascam 424 preamp: elastic clean, slow CE-2 wobble, small room |
+| MKG Portastudio Crush | the 424 past the point of control: dark, ~30 dB of squash, half-broken |
+| MKG Baritone Drop | DigiTech Drop-style −5 semitones *before* the preamp (baritone weight) |
+| MKG Distorted Room | reverb before the preamp (Rainger Reverb-X idea): the room breaks up as you dig in |
+| MKG Dream Wobble | seasick CE-2 vibrato (~0.8 Hz, ±22 cents) into a worn cassette |
+| MKG Bowed Pad | Roland VG-8 "Bowed Pad" idea: volume swells into a drifting hall |
+| MKG Mood Smear | Chase Bliss MOOD-like micro-loops (~230 ms); twist TIME or record a GESTURE |
+| MKG Rockman Clean | compressor-first 80s headphone-amp clean: doubled, short echo |
+| MKG Two Star Lead | blown-out fuzz lead with a wonky DD-style tape echo |
+| MKG Quadraverb Grain | short grainy early-digital room crushed by the preamp after it |
+
+Every knob, secondary control and routing is listed in [`docs/PRESETS.md`](docs/PRESETS.md), also as
+clock positions so the same sounds can be dialled on a physical Chroma Console.
+
 ## Building
 
 Requirements: CMake ≥ 3.25, a C++20 compiler, and on Linux the usual JUCE dependencies

@@ -1,6 +1,7 @@
 // WARMFUL — pedal-style editor.
 // SPDX-License-Identifier: CC-BY-NC-SA-4.0
 #include "PluginEditor.h"
+#include "FactoryPresets.h"
 
 namespace warmful
 {
@@ -50,8 +51,8 @@ PedalView::PedalView (WarmfulProcessor& p) : processor (p)
         button->onToggle = [this, m] { processor.toggleModule (m); };
         button->onPick = [this, m] (int fx)
         {
-            processor.setParam(params::kEffectIds[(size_t) m], (float) fx);
-            processor.setParam(params::kModuleOnIds[(size_t) m], 1.0f);
+            processor.setParam (params::kEffectIds[(size_t) m], (float) fx);
+            processor.setParam (params::kModuleOnIds[(size_t) m], 1.0f);
         };
         addAndMakeVisible (*button);
         moduleButtons.push_back (std::move (button));
@@ -67,6 +68,7 @@ PedalView::PedalView (WarmfulProcessor& p) : processor (p)
     addAndMakeVisible (leds);
 
     setSize (kWidth, kHeight);
+    timerCallback();   // first paint already shows the current effects / LEDs
     startTimerHz (30);
 }
 
@@ -179,14 +181,18 @@ juce::String PedalView::statusText() const
         return "SECONDARY - knobs edit the grey labels. Click SECONDARY or BYPASS to exit";
 
     const int preset = processor.getCurrentPreset();
-    const auto sync = (params::SyncMode) (int) processor.getParam(params::kSyncMode);
+    const int factory = processor.getCurrentFactoryPreset();
+    const auto sync = (params::SyncMode) (int) processor.getParam (params::kSyncMode);
     const char* syncName = sync == params::SyncMode::Free ? "FREE" : (sync == params::SyncMode::Tap ? "TAP" : "HOST");
-    const int cal = (int) processor.getParam(params::kCalibration);
+    const int cal = (int) processor.getParam (params::kCalibration);
     juce::String s;
-    s << "PRESET " << (preset >= 0 ? PresetBank::slotName (preset) : juce::String ("--"))
-      << "   |   " << juce::String (processor.getParam(params::kTempo), 1) << " BPM " << syncName
+    if (factory >= 0)
+        s << "FACTORY " << factoryPresets()[(size_t) factory].name;
+    else
+        s << "PRESET " << (preset >= 0 ? PresetBank::slotName (preset) : juce::String ("--"));
+    s << "   |   " << juce::String (processor.getParam (params::kTempo), 1) << " BPM " << syncName
       << "   |   CAL " << calibration::levelName (cal)
-      << "   |   CAPTURE " << ((int) processor.getParam(params::kCaptureRouting) == 0 ? "POST" : "PRE");
+      << "   |   CAPTURE " << ((int) processor.getParam (params::kCaptureRouting) == 0 ? "POST" : "PRE");
     return s;
 }
 
@@ -201,7 +207,7 @@ void PedalView::mouseDown (const juce::MouseEvent& e)
             // Long-press equivalents on the pedal: reset secondaries / delete all gestures.
             if (i == 0)
                 for (size_t k = 0; k < params::kSecondaryIds.size(); ++k)
-                    processor.setParam(params::kSecondaryIds[k], params::kSecondaryDefaults[k]);
+                    processor.setParam (params::kSecondaryIds[k], params::kSecondaryDefaults[k]);
             if (i == 1)
                 processor.getEngine().gestureClear();
             return;
@@ -275,7 +281,7 @@ void PedalView::timerCallback()
     blink = std::fmod (nowMs, 700.0) < 350.0;
 
     // Knob markers show GESTURE / expression playback values.
-    const int expTarget = (int) processor.getParam(params::kExpTarget) - 1;
+    const int expTarget = (int) processor.getParam (params::kExpTarget) - 1;
     for (int k = 0; k < kNumPrimary; ++k)
     {
         const bool lane = eng.gestureHasLane (k), rec = eng.gestureIsRecordingKnob (k);
@@ -285,8 +291,8 @@ void PedalView::timerCallback()
 
     for (int m = 0; m < kNumModules; ++m)
     {
-        const int fx = (int) processor.getParam(params::kEffectIds[(size_t) m]);
-        const bool on = processor.getParam(params::kModuleOnIds[(size_t) m]) >= 0.5f;
+        const int fx = (int) processor.getParam (params::kEffectIds[(size_t) m]);
+        const bool on = processor.getParam (params::kModuleOnIds[(size_t) m]) >= 0.5f;
         const bool lane = eng.gestureHasLane (2 * m) || eng.gestureHasLane (2 * m + 1);
         const bool rec = eng.gestureIsRecordingKnob (2 * m) || eng.gestureIsRecordingKnob (2 * m + 1);
         moduleButtons[(size_t) m]->setState (fx, on, lane, rec, blink);
@@ -300,15 +306,15 @@ void PedalView::timerCallback()
         case Capture::Mode::Loop:      tapSwitch.setLed (theme::effectColour[2]); break;
         case Capture::Mode::Off:
         {
-            const double beatMs = 60000.0 / std::max (30.0, (double) processor.getParam(params::kTempo));
+            const double beatMs = 60000.0 / std::max (30.0, (double) processor.getParam (params::kTempo));
             tapSwitch.setLed (std::fmod (nowMs, beatMs) < 90.0 ? theme::recordRed : juce::Colours::transparentBlack);
             break;
         }
     }
 
     // BYPASS LED: red = engaged, blinking yellow = DUAL BYPASS group off, dark = bypassed.
-    const bool bypassed = processor.getParam(params::kBypass) >= 0.5f;
-    const bool dual = processor.getParam(params::kDualActive) >= 0.5f;
+    const bool bypassed = processor.getParam (params::kBypass) >= 0.5f;
+    const bool dual = processor.getParam (params::kDualActive) >= 0.5f;
     bypassSwitch.setLed (bypassed ? juce::Colours::transparentBlack
                                   : (dual ? (blink ? juce::Colour (0xfff4c430) : juce::Colours::transparentBlack) : theme::recordRed));
 

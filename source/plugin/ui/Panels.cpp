@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: CC-BY-NC-SA-4.0
 #include "Panels.h"
 #include "../PluginProcessor.h"
+#include "FactoryPresets.h"
 
 namespace warmful::ui
 {
@@ -117,7 +118,7 @@ void FxSetupPanel::pressRoutingButton (int module)
     {
         std::array<int, kNumModules> order {};
         std::copy (pendingOrder.begin(), pendingOrder.end(), order.begin());
-        processor.setParam(params::kOrder, (float) params::orderIndexOf (order));
+        processor.setParam (params::kOrder, (float) params::orderIndexOf (order));
         pendingOrder.clear();
         for (auto& b : routeButtons)
             b.setToggleState (false, juce::dontSendNotification);
@@ -131,7 +132,7 @@ void FxSetupPanel::resetSetup()
     for (const char* id : { params::kOrder, params::kCaptureRouting, params::kFilterStyle, params::kExpTarget,
                             params::kDualMaskIds[0], params::kDualMaskIds[1], params::kDualMaskIds[2], params::kDualMaskIds[3] })
         if (auto* prm = processor.getState().getParameter (id))
-            processor.setParam(id, prm->convertFrom0to1 (prm->getDefaultValue()));
+            processor.setParam (id, prm->convertFrom0to1 (prm->getDefaultValue()));
     pendingOrder.clear();
     for (auto& b : routeButtons)
         b.setToggleState (false, juce::dontSendNotification);
@@ -143,7 +144,7 @@ void FxSetupPanel::paint (juce::Graphics& g)
     Panel::paint (g);
 
     // Current routing, drawn as a chain of chips under the routing buttons.
-    const auto& order = params::moduleOrders()[(size_t) juce::jlimit (0, 23, (int) processor.getParam(params::kOrder))];
+    const auto& order = params::moduleOrders()[(size_t) juce::jlimit (0, 23, (int) processor.getParam (params::kOrder))];
     auto row = routeButtons[0].getBounds().withRight (routeButtons[3].getRight()).translated (0, 30).toFloat();
     const float w = row.getWidth() / 4.0f;
     g.setFont (theme::font (11.0f, true));
@@ -211,16 +212,20 @@ PresetPanel::PresetPanel (WarmfulProcessor& p, Mode m)
 {
     const int current = processor.getCurrentPreset();
     bank = current >= 0 ? current / PresetBank::kSlotsPerBank : 0;
+    if (mode == Mode::Browse && processor.getCurrentFactoryPreset() >= 0)
+        bank = kFactoryBank;
     selected = mode == Mode::Save ? current : -1;
 
-    for (int b = 0; b < 4; ++b)
+    for (int b = 0; b < (int) bankButtons.size(); ++b)
     {
         auto& bb = bankButtons[(size_t) b];
-        bb.setButtonText (juce::String ("BANK ") + (char) ('A' + b));
+        bb.setButtonText (b == kFactoryBank ? juce::String ("FACTORY") : juce::String ("BANK ") + (char) ('A' + b));
         bb.setRadioGroupId (1);
         bb.setClickingTogglesState (true);
-        bb.onClick = [this, b] { bank = b; refresh(); };
-        addAndMakeVisible (bb);
+        bb.onClick = [this, b] { bank = b; refresh(); resized(); };
+        // Factory sounds are read-only: they are browsed here and saved into a user slot via COPY/SAVE.
+        bb.setVisible (b != kFactoryBank || mode == Mode::Browse);
+        addChildComponent (bb);
     }
     for (int s = 0; s < 20; ++s)
     {
@@ -230,13 +235,10 @@ PresetPanel::PresetPanel (WarmfulProcessor& p, Mode m)
 
     hint.setFont (theme::font (11.0f));
     hint.setColour (juce::Label::textColourId, theme::stripText.withAlpha (0.7f));
-    hint.setText (mode == Mode::Browse ? "Click a preset to load it (MIDI Program Change 0-79 also loads)."
-                                       : "Pick a slot, then SAVE. Saves effects, routing, knobs, secondary, gestures, tempo.",
-                  juce::dontSendNotification);
+    hint.setJustificationType (juce::Justification::topLeft);
     addAndMakeVisible (hint);
 
     save.setEnabled (mode == Mode::Save);
-    save.setVisible (mode == Mode::Save);
     save.onClick = [this]
     {
         if (selected >= 0)
@@ -246,12 +248,19 @@ PresetPanel::PresetPanel (WarmfulProcessor& p, Mode m)
             if (onClose) onClose();
         }
     };
-    addAndMakeVisible (save);
+    addChildComponent (save);
+    save.setVisible (mode == Mode::Save);
     refresh();
 }
 
 void PresetPanel::slotClicked (int slotInBank)
 {
+    if (bank == kFactoryBank)
+    {
+        processor.loadFactoryPreset (slotInBank);
+        refresh();
+        return;
+    }
     const int slot = bank * PresetBank::kSlotsPerBank + slotInBank;
     if (mode == Mode::Browse)
         processor.loadPreset (slot);   // presets are auditioned while browsing
@@ -264,20 +273,48 @@ void PresetPanel::refresh()
 {
     auto& presets = processor.getPresetBank();
     presets.reload();
-    for (int b = 0; b < 4; ++b)
+    for (int b = 0; b < (int) bankButtons.size(); ++b)
         bankButtons[(size_t) b].setToggleState (b == bank, juce::dontSendNotification);
+
+    if (bank == kFactoryBank)
+    {
+        const auto factory = factoryPresets();
+        const int active = processor.getCurrentFactoryPreset();
+        for (int s = 0; s < (int) slotButtons.size(); ++s)
+        {
+            auto& btn = slotButtons[(size_t) s];
+            const bool used = s < (int) factory.size();
+            btn.setVisible (used);
+            if (! used)
+                continue;
+            btn.setButtonText (factory[(size_t) s].name);
+            btn.setTooltip (factory[(size_t) s].description);
+            btn.setToggleState (s == active, juce::dontSendNotification);
+            btn.setColour (juce::TextButton::textColourOffId, theme::stripText);
+            btn.setEnabled (true);
+        }
+        hint.setText (active >= 0 ? juce::String (factory[(size_t) active].description)
+                                  : juce::String ("Factory sounds (MEDIUM calibration). Load one, tweak it, then COPY/SAVE it to a user slot."),
+                      juce::dontSendNotification);
+        return;
+    }
 
     const int active = mode == Mode::Save ? selected : processor.getCurrentPreset();
     for (int s = 0; s < 20; ++s)
     {
         const int slot = bank * PresetBank::kSlotsPerBank + s;
         auto& btn = slotButtons[(size_t) s];
+        btn.setVisible (true);
+        btn.setTooltip ({});
         btn.setButtonText (PresetBank::slotName (slot) + (presets.has (slot) ? "" : " -"));
         btn.setToggleState (slot == active, juce::dontSendNotification);
         btn.setColour (juce::TextButton::textColourOffId,
                        presets.has (slot) ? theme::stripText : theme::stripText.withAlpha (0.35f));
         btn.setEnabled (mode == Mode::Save || presets.has (slot));
     }
+    hint.setText (mode == Mode::Browse ? "Click a preset to load it (MIDI Program Change 0-79 also loads)."
+                                       : "Pick a slot, then SAVE. Saves effects, routing, knobs, secondary, gestures, tempo.",
+                  juce::dontSendNotification);
     save.setButtonText (selected >= 0 ? "SAVE TO " + PresetBank::slotName (selected) : "SAVE");
     save.setEnabled (selected >= 0);
 }
@@ -287,17 +324,28 @@ void PresetPanel::resized()
     Panel::resized();
     auto r = content();
     auto banks = r.removeFromTop (28);
-    const int bw = banks.getWidth() / 4;
-    for (auto& b : bankButtons)
-        b.setBounds (banks.removeFromLeft (bw).reduced (3, 0));
+    const int visibleBanks = mode == Mode::Browse ? (int) bankButtons.size() : 4;
+    const int bw = banks.getWidth() / visibleBanks;
+    for (int b = 0; b < visibleBanks; ++b)
+        bankButtons[(size_t) b].setBounds (banks.removeFromLeft (bw).reduced (3, 0));
     r.removeFromTop (10);
 
     auto grid = r.removeFromTop (4 * 34);
-    const int cw = grid.getWidth() / 5;
-    for (int s = 0; s < 20; ++s)
-        slotButtons[(size_t) s].setBounds (juce::Rectangle<int> (grid.getX() + (s % 5) * cw, grid.getY() + (s / 5) * 34, cw, 34).reduced (3));
+    if (bank == kFactoryBank)
+    {
+        // Two wide columns: factory names are longer than slot numbers.
+        const int rows = 5, rh = grid.getHeight() / rows, cw = grid.getWidth() / 2;
+        for (int s = 0; s < (int) slotButtons.size(); ++s)
+            slotButtons[(size_t) s].setBounds (juce::Rectangle<int> (grid.getX() + (s / rows) * cw, grid.getY() + (s % rows) * rh, cw, rh).reduced (3, 2));
+    }
+    else
+    {
+        const int cw = grid.getWidth() / 5;
+        for (int s = 0; s < 20; ++s)
+            slotButtons[(size_t) s].setBounds (juce::Rectangle<int> (grid.getX() + (s % 5) * cw, grid.getY() + (s / 5) * 34, cw, 34).reduced (3));
+    }
     r.removeFromTop (8);
-    hint.setBounds (r.removeFromTop (34));
+    hint.setBounds (r.removeFromTop (48));
     save.setBounds (r.removeFromTop (30).withSizeKeepingCentre (180, 30));
 }
 
@@ -320,7 +368,7 @@ GlobalPanel::GlobalPanel (WarmfulProcessor& p) : Panel ("GLOBAL SETTINGS"), proc
     {
         auto& b = calButtons[(size_t) i];
         b.setButtonText (names[i]);
-        b.onClick = [this, i] { processor.setParam(params::kCalibration, (float) i); };
+        b.onClick = [this, i] { processor.setParam (params::kCalibration, (float) i); };
         addAndMakeVisible (b);
     }
     autoCal.onClick = [this] { processor.getEngine().startAutoCalibration(); };
@@ -348,7 +396,7 @@ GlobalPanel::GlobalPanel (WarmfulProcessor& p) : Panel ("GLOBAL SETTINGS"), proc
     resetSecondary.onClick = [this]
     {
         for (size_t k = 0; k < params::kSecondaryIds.size(); ++k)
-            processor.setParam(params::kSecondaryIds[k], params::kSecondaryDefaults[k]);
+            processor.setParam (params::kSecondaryIds[k], params::kSecondaryDefaults[k]);
     };
     clearGestures.onClick = [this] { processor.getEngine().gestureClear(); };
     addAndMakeVisible (resetSecondary);
@@ -360,7 +408,7 @@ GlobalPanel::GlobalPanel (WarmfulProcessor& p) : Panel ("GLOBAL SETTINGS"), proc
 
 void GlobalPanel::timerCallback()
 {
-    const int level = (int) processor.getParam(params::kCalibration);
+    const int level = (int) processor.getParam (params::kCalibration);
     for (int i = 0; i < 4; ++i)
         calButtons[(size_t) i].setToggleState (i == level, juce::dontSendNotification);
     calStatus.setText (processor.getEngine().isAutoCalibrating() ? "Listening... play your instrument at normal volume."

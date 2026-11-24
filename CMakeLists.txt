@@ -1,7 +1,7 @@
 # WARMFUL — behavioural replica of a four-module vintage multi-effect pedal.
 # SPDX-License-Identifier: CC-BY-NC-SA-4.0
 cmake_minimum_required (VERSION 3.25)
-project (WARMFUL VERSION 0.1.0 LANGUAGES C CXX)
+project (WARMFUL VERSION 0.2.0 LANGUAGES C CXX)
 
 set (CMAKE_CXX_STANDARD 20)
 set (CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -20,6 +20,7 @@ option (WARMFUL_BUILD_TOOLS "Build the offline renderer / DSP test-suite" ON)
 add_library (warmful_dsp STATIC
     source/dsp/Capture.cpp
     source/dsp/Engine.cpp
+    source/dsp/FactoryPresets.cpp
     source/dsp/Gesture.cpp
     source/dsp/Module.cpp
     source/dsp/effects/character/CharacterFactory.cpp
