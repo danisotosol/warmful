@@ -32,11 +32,14 @@ public:
     bool isMidiEffect() const override { return false; }
     double getTailLengthSeconds() const override { return 20.0; }
 
-    // Presets are handled by the pedal-style bank (MIDI Program Change), not host programs.
-    int getNumPrograms() override { return 1; }
+    // Host program list = the factory bank. Program 0 is a no-op "current settings" entry and
+    // getCurrentProgram() always reports it, so hosts that re-apply the current program after
+    // restoring a project can never overwrite the saved (possibly tweaked) state.
+    // User presets stay in the pedal-style bank (MIDI Program Change 0-79).
+    int getNumPrograms() override;
     int getCurrentProgram() override { return 0; }
-    void setCurrentProgram (int) override {}
-    const juce::String getProgramName (int) override { return {}; }
+    void setCurrentProgram (int index) override;
+    const juce::String getProgramName (int index) override;
     void changeProgramName (int, const juce::String&) override {}
 
     void getStateInformation (juce::MemoryBlock& destData) override;
@@ -62,6 +65,9 @@ public:
     /** Read-only factory bank (FactoryPresets.h); loading one clears the user-slot selection. */
     bool loadFactoryPreset (int index);
     int getCurrentFactoryPreset() const noexcept { return currentFactory.load(); }
+    /** The preset bar's arrows: next/previous saved user slot when a user preset is loaded,
+        otherwise next/previous factory preset. */
+    void stepPreset (int direction);
     PresetBank& getPresetBank() noexcept { return presetBank; }
 
     /** Sets a parameter by ID in plain units (index for choices), as a host-visible gesture. */
@@ -93,6 +99,7 @@ private:
     std::atomic<int> currentPreset { -1 };
     std::atomic<int> currentFactory { -1 };
     std::atomic<int> pendingProgram { -1 };
+    std::atomic<int> pendingFactory { -1 };
     std::atomic<int> pendingMidiTaps { 0 };
 
     double tapDownMs = 0.0;

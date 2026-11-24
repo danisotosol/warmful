@@ -140,7 +140,7 @@ void PedalView::paint (juce::Graphics& g)
     }
     g.setColour (theme::stripText.withAlpha (0.6f));
     g.setFont (theme::font (11.0f, true));
-    g.drawText ("MULTI-EFFECTOR", logoArea.withTrimmedTop (46.0f), juce::Justification::topLeft);
+    g.drawText ("MULTI-EFFECTOR   v" JucePlugin_VersionString, logoArea.withTrimmedTop (46.0f), juce::Justification::topLeft);
 
     const bool gestureRec = processor.getEngine().gestureIsRecording();
     for (int i = 0; i < (int) kMenus.size(); ++i)
@@ -160,14 +160,41 @@ void PedalView::paint (juce::Graphics& g)
         }
     }
 
+    // Preset bar: previous / name (opens the browser) / next.
+    const auto bar = presetBarArea().toFloat();
+    g.setColour (theme::strip);
+    g.fillRoundedRectangle (bar, 6.0f);
+    g.setColour (theme::stripText);
+    for (int side : { -1, 1 })
+    {
+        const auto arrowArea = side < 0 ? bar.withWidth (kPresetArrowWidth) : bar.withLeft (bar.getRight() - kPresetArrowWidth);
+        const auto c = arrowArea.getCentre();
+        juce::Path arrow;
+        arrow.addTriangle (c.x - 4.0f * (float) side, c.y - 5.0f, c.x - 4.0f * (float) side, c.y + 5.0f, c.x + 5.0f * (float) side, c.y);
+        g.fillPath (arrow);
+    }
+    g.setFont (theme::font (12.0f, true));
+    g.drawText (presetBarText(), bar.reduced (kPresetArrowWidth, 0.0f), juce::Justification::centred);
+
     // Status line.
     g.setColour (theme::ink);
     g.setFont (theme::font (11.0f, true));
-    g.drawText (statusText(), juce::Rectangle<int> (20, 664, kWidth - 40, 20), juce::Justification::centred);
+    g.drawText (statusText(), juce::Rectangle<int> (20, 684, kWidth - 40, 16), juce::Justification::centred);
     g.setColour (theme::inkSoft);
     g.setFont (theme::font (9.5f));
     g.drawText ("Module button: click = next effect, hold = OFF, right-click = list.   TAP: tap tempo / hold = CAPTURE.   BYPASS: hold = presets.",
-                juce::Rectangle<int> (16, 686, kWidth - 32, 16), juce::Justification::centred);
+                juce::Rectangle<int> (16, 701, kWidth - 32, 14), juce::Justification::centred);
+}
+
+juce::String PedalView::presetBarText() const
+{
+    const int factory = processor.getCurrentFactoryPreset();
+    if (factory >= 0)
+        return juce::String ("FACTORY  ") + factoryPresets()[(size_t) factory].name;
+    const int preset = processor.getCurrentPreset();
+    if (preset >= 0)
+        return "USER  " + PresetBank::slotName (preset);
+    return "PRESETS: click to browse (" + juce::String ((int) factoryPresets().size()) + " factory sounds)";
 }
 
 juce::String PedalView::statusText() const
@@ -180,17 +207,11 @@ juce::String PedalView::statusText() const
     if (secondaryMode)
         return "SECONDARY - knobs edit the grey labels. Click SECONDARY or BYPASS to exit";
 
-    const int preset = processor.getCurrentPreset();
-    const int factory = processor.getCurrentFactoryPreset();
     const auto sync = (params::SyncMode) (int) processor.getParam (params::kSyncMode);
     const char* syncName = sync == params::SyncMode::Free ? "FREE" : (sync == params::SyncMode::Tap ? "TAP" : "HOST");
     const int cal = (int) processor.getParam (params::kCalibration);
     juce::String s;
-    if (factory >= 0)
-        s << "FACTORY " << factoryPresets()[(size_t) factory].name;
-    else
-        s << "PRESET " << (preset >= 0 ? PresetBank::slotName (preset) : juce::String ("--"));
-    s << "   |   " << juce::String (processor.getParam (params::kTempo), 1) << " BPM " << syncName
+    s << juce::String (processor.getParam (params::kTempo), 1) << " BPM " << syncName
       << "   |   CAL " << calibration::levelName (cal)
       << "   |   CAPTURE " << ((int) processor.getParam (params::kCaptureRouting) == 0 ? "POST" : "PRE");
     return s;
@@ -198,6 +219,19 @@ juce::String PedalView::statusText() const
 
 void PedalView::mouseDown (const juce::MouseEvent& e)
 {
+    const auto bar = presetBarArea();
+    if (bar.contains (e.getPosition()))
+    {
+        if (e.x < bar.getX() + (int) kPresetArrowWidth)
+            processor.stepPreset (-1);
+        else if (e.x > bar.getRight() - (int) kPresetArrowWidth)
+            processor.stepPreset (1);
+        else
+            showPanel (std::make_unique<ui::PresetPanel> (processor, ui::PresetPanel::Mode::Browse));
+        repaint();
+        return;
+    }
+
     for (int i = 0; i < (int) kMenus.size(); ++i)
     {
         if (! menuRow (i).contains (e.getPosition()))
@@ -330,7 +364,7 @@ void PedalView::timerCallback()
         bars[(size_t) i] = juce::jlimit (0.0f, 1.0f, level * 4.0f - (float) i);
     leds.setLevels (bars, colour);
 
-    repaint (0, 436, kWidth, 270);   // strip legend + status line
+    repaint (0, 436, kWidth, kHeight - 436);   // strip legend, preset bar, status line
 }
 
 // ---- WarmfulEditor ----------------------------------------------------------------------------

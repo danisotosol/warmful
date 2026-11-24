@@ -35,6 +35,9 @@ private:
     juce::Rectangle<int> stripArea() const { return { 14, 440, kWidth - 28, 96 }; }
     juce::Rectangle<int> menuRow (int index) const;
     juce::String statusText() const;
+    juce::String presetBarText() const;
+    juce::Rectangle<int> presetBarArea() const { return { kWidth / 2 - 175, 656, 350, 24 }; }
+    static constexpr float kPresetArrowWidth = 30.0f;
 
     WarmfulProcessor& processor;
     ui::LookAndFeel lnf;

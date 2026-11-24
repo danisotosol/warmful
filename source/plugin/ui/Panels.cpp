@@ -212,7 +212,8 @@ PresetPanel::PresetPanel (WarmfulProcessor& p, Mode m)
 {
     const int current = processor.getCurrentPreset();
     bank = current >= 0 ? current / PresetBank::kSlotsPerBank : 0;
-    if (mode == Mode::Browse && processor.getCurrentFactoryPreset() >= 0)
+    // The browser opens on FACTORY unless a user preset is loaded (fresh installs have empty banks).
+    if (mode == Mode::Browse && current < 0)
         bank = kFactoryBank;
     selected = mode == Mode::Save ? current : -1;
 

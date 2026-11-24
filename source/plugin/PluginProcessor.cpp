@@ -206,8 +206,42 @@ void WarmfulProcessor::handleAsyncUpdate()
     const int program = pendingProgram.exchange (-1);
     if (program >= 0)
         loadPreset (program);
+    const int factory = pendingFactory.exchange (-1);
+    if (factory >= 0)
+        loadFactoryPreset (factory);
     if (pendingMidiTaps.exchange (0) > 0)
         tapTempo (nowMs());
+}
+
+// ---- Host program list (factory bank) ----------------------------------------------------------
+
+int WarmfulProcessor::getNumPrograms()
+{
+    return 1 + (int) factoryPresets().size();
+}
+
+const juce::String WarmfulProcessor::getProgramName (int index)
+{
+    const auto presets = factoryPresets();
+    if (index >= 1 && index <= (int) presets.size())
+        return presets[(size_t) index - 1].name;
+    return "(current settings)";
+}
+
+void WarmfulProcessor::setCurrentProgram (int index)
+{
+    if (index < 1 || index > (int) factoryPresets().size())
+        return;
+    // Apply immediately when the host calls from the message thread (the usual case), so a
+    // program change never lands later on top of whatever the host does next (e.g. a state
+    // restore). Calls from other threads are deferred to the message thread.
+    if (juce::MessageManager::existsAndIsCurrentThread())
+        loadFactoryPreset (index - 1);
+    else
+    {
+        pendingFactory.store (index - 1);
+        triggerAsyncUpdate();
+    }
 }
 
 // ---- Pedal actions -------------------------------------------------------------------------
@@ -380,6 +414,31 @@ bool WarmfulProcessor::loadFactoryPreset (int index)
     return true;
 }
 
+void WarmfulProcessor::stepPreset (int direction)
+{
+    const int step = direction < 0 ? -1 : 1;
+    const int user = currentPreset.load();
+    if (user >= 0)
+    {
+        // Next saved user slot in that direction (wrapping); stay put if it is the only one.
+        presetBank.reload();
+        for (int i = 1; i < PresetBank::kNumSlots; ++i)
+        {
+            const int slot = (user + step * i + PresetBank::kNumSlots) % PresetBank::kNumSlots;
+            if (presetBank.has (slot))
+            {
+                loadPreset (slot);
+                return;
+            }
+        }
+        return;
+    }
+    const int count = (int) factoryPresets().size();
+    const int factory = currentFactory.load();
+    const int next = factory < 0 ? (step > 0 ? 0 : count - 1) : (factory + step + count) % count;
+    loadFactoryPreset (next);
+}
+
 // ---- State ------------------------------------------------------------------------------------
 
 void WarmfulProcessor::getStateInformation (juce::MemoryBlock& destData)
@@ -407,6 +466,14 @@ void WarmfulProcessor::setStateInformation (const void* data, int sizeInBytes)
     tree.removeProperty ("currentPreset", nullptr);
     tree.removeProperty ("currentFactory", nullptr);
     state.replaceState (tree);
+
+    // AudioParameterBool keeps the raw normalised value a host sent (e.g. 0.81 = on), while
+    // replaceState() skips parameters whose snapped value already matches. Snap the booleans so
+    // after a restore they hold exactly what the state says.
+    for (auto* p : getParameters())
+        if (p->isBoolean())
+            if (const float snapped = p->getValue() >= 0.5f ? 1.0f : 0.0f; ! juce::approximatelyEqual (p->getValue(), snapped))
+                p->setValueNotifyingHost (snapped);
 }
 
 juce::AudioProcessorParameter* WarmfulProcessor::getBypassParameter() const

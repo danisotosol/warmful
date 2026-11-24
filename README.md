@@ -97,10 +97,15 @@ CAPTURE loops are not stored, as on the pedal.
 
 ### Factory presets: the MKG set
 
-A read-only **FACTORY** tab in the preset browser (hold BYPASS) holds ten sounds inspired by Mk.gee's
-publicly documented rig (not endorsed by him). Each piece of his chain is mapped onto the module that
-plays its role, including the module order. Load one, tweak it, and COPY/SAVE it into a user slot.
-All of them assume MEDIUM calibration and are level-matched to within 1 dB of the dry signal.
+Ten sounds inspired by Mk.gee's publicly documented rig (not endorsed by him). Each piece of his
+chain is mapped onto the module that plays its role, including the module order. Three ways to load them:
+
+- the **preset bar** under the footswitches: ◀ ▶ step through them, click the name to open the browser;
+- the **FACTORY** tab of the preset browser (also: hold the BYPASS footswitch);
+- your DAW's preset/program menu (entry 0 "(current settings)" is a no-op, so a host never resets a project).
+
+Load one, tweak it, and COPY/SAVE it into a user slot. All of them assume MEDIUM calibration and are
+level-matched to within 1 dB of the dry signal. The version is shown under the logo (e.g. `v0.2.1`).
 
 | Preset | Idea |
 |---|---|
