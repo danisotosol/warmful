@@ -10,6 +10,9 @@ if (NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     set (CMAKE_BUILD_TYPE Release CACHE STRING "" FORCE)
 endif ()
 
+# Windows: link the C++ runtime statically so the installer needs no VC++ redistributable.
+set (CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+
 option (WARMFUL_BUILD_PLUGIN "Build the JUCE plug-in (VST3/Standalone/LV2/AU)" ON)
 option (WARMFUL_BUILD_TOOLS "Build the offline renderer / DSP test-suite" ON)
 
@@ -78,6 +81,8 @@ if (WARMFUL_BUILD_PLUGIN)
     juce_add_plugin (WARMFUL
         PRODUCT_NAME "WARMFUL"
         COMPANY_NAME "WARMFUL"
+        COMPANY_WEBSITE "https://github.com/danisotosol/WARMFUL"
+        ICON_BIG "${CMAKE_CURRENT_SOURCE_DIR}/resources/icon.png"
         BUNDLE_ID "org.warmful.warmful"
         PLUGIN_MANUFACTURER_CODE Wrmf
         PLUGIN_CODE Wrm1

@@ -39,6 +39,23 @@ flowchart LR
     MIX --> CAP2{{CAPTURE post-FX}} --> OUT[Output]
 ```
 
+## Installing
+
+**Windows 10/11 (x64):** download `WARMFUL-<version>-Windows-Setup.exe` from
+[Releases](https://github.com/danisotosol/WARMFUL/releases) and run it. The installer lets you pick
+
+- the components: VST3 plug-in, standalone app, documentation + measurement kit;
+- the app folder (default `C:\Program Files\WARMFUL`);
+- the VST3 folder (default `C:\Program Files\Common Files\VST3`, or any folder your DAW scans);
+- a per-user install without administrator rights (VST3 then defaults to `%LOCALAPPDATA%\Programs\Common\VST3`).
+
+It remembers your folders for upgrades and removes everything it installed from *Apps & features*.
+The installer is not code-signed, so SmartScreen may warn: *More info → Run anyway*. Silent install:
+`WARMFUL-…-Setup.exe /VERYSILENT /COMPONENTS=vst3,standalone /DIR="C:\WARMFUL" /VST3DIR="D:\VST3"`.
+
+**Linux / macOS:** build from source (below) and copy the bundle to `~/.vst3` / `~/.lv2` or
+`~/Library/Audio/Plug-Ins/VST3`.
+
 ## Using it (pedal → plug-in)
 
 | On the pedal | In WARMFUL |
@@ -92,6 +109,13 @@ cmake --build build --config Release -j
 Artefacts end up in `build/WARMFUL_artefacts/Release/{VST3,LV2,Standalone,AU}`. Copy the `.vst3`
 bundle to `~/.vst3` (Linux), `~/Library/Audio/Plug-Ins/VST3` (macOS) or `C:\Program Files\Common Files\VST3`.
 
+Windows installer: with [Inno Setup 6](https://jrsoftware.org/isinfo.php) installed, after the
+Release build run `ISCC.exe /DAppVersion=0.1.0 installer\windows\WARMFUL.iss` (output in
+`build\installer`). CI ([`.github/workflows/build.yml`](.github/workflows/build.yml)) does this on
+every push: it builds with MSVC, runs the DSP checks, builds the installer, installs it silently,
+validates the installed VST3 with pluginval (strictness 10), uninstalls, and on `v*` tags publishes
+the installer as a GitHub Release.
+
 ### DSP core, tests and offline rendering (no JUCE needed)
 
 ```sh
@@ -116,6 +140,8 @@ source/dsp/effects/    the 20 effects, one folder per module, tunables in `names
 source/plugin/         JUCE wrapper: parameters, MIDI chart, presets, pedal-style UI
 tools/render/          warmful_render: offline renderer + DSP test-suite
 tools/measure/         re-amp measurement and pedal-vs-plug-in comparison
+installer/windows/     Inno Setup script for the Windows installer
+resources/             app / installer icon
 ```
 
 ## License

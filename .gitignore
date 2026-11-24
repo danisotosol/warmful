@@ -5,6 +5,7 @@ __pycache__/
 *.wav
 *.png
 !docs/*.png
+!resources/*.png
 compile_commands.json
 .vscode/
 .idea/

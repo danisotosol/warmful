@@ -2,10 +2,12 @@
 // SPDX-License-Identifier: CC-BY-NC-SA-4.0
 #pragma once
 
+#include <algorithm>
 #include <cstdint>
 #include <cstring>
 #include <fstream>
 #include <string>
+#include <iterator>
 #include <vector>
 
 namespace wav
