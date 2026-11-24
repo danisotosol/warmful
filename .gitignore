@@ -1,0 +1,11 @@
+build*/
+renders/
+.cache/
+__pycache__/
+*.wav
+*.png
+!docs/*.png
+compile_commands.json
+.vscode/
+.idea/
+.DS_Store
