@@ -3,6 +3,7 @@
 #pragma once
 
 #include "Controls.h"
+#include "FactoryPresets.h"
 
 namespace warmful
 {
@@ -75,6 +76,9 @@ private:
     int bank = 0, selected = -1;
     std::array<juce::TextButton, 5> bankButtons;
     std::array<juce::TextButton, 20> slotButtons;
+    std::array<juce::TextButton, kMaxFactoryPacks> packButtons;   // factory packs (artist/theme tabs)
+    int pack = 0;
+    std::vector<int> packPresets;                  // factory indices shown in the grid
     juce::TextButton save { "SAVE" };
     juce::Label hint;
 };

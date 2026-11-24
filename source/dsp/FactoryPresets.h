@@ -11,9 +11,11 @@ namespace warmful
 /** One factory sound. Knobs are 0..1 pot positions, indexed like the pedal:
     primary  = TILT, AMOUNT(CHAR), RATE, AMOUNT(MOVE), TIME, AMOUNT(DIFF), MIX, AMOUNT(TEX)
     secondary = SENSITIVITY, VOL(CHAR), DRIFT(MOVE), VOL(MOVE), DRIFT(DIFF), VOL(DIFF), OUTPUT, VOL(TEX)
-    Presets assume MEDIUM calibration (a DI guitar peaking around -18 dBFS). */
+    Presets assume MEDIUM calibration (a DI guitar peaking around -18 dBFS).
+    `pack` is the id of the FactoryPack it belongs to; names start with that id ("DIJ ..."). */
 struct FactoryPreset
 {
+    const char* pack;
     const char* name;
     const char* description;
     std::array<int, kNumModules> effect;
@@ -24,7 +26,20 @@ struct FactoryPreset
     FilterStyle filterStyle = FilterStyle::Tilt;
 };
 
+/** A themed group of factory presets (one tab in the browser). */
+struct FactoryPack
+{
+    const char* id;      // 3-letter prefix used in preset names
+    const char* title;   // shown on the tab
+};
+
+/** Browser layout limits: one tab per pack, each pack shown as a two-column grid. */
+constexpr int kMaxFactoryPacks = 8;
+constexpr int kFactoryGridRows = 5;
+constexpr int kMaxPresetsPerPack = 2 * kFactoryGridRows;
+
 std::span<const FactoryPreset> factoryPresets();
+std::span<const FactoryPack> factoryPacks();
 
 /** The engine state a preset describes (everything else keeps the values in `base`). */
 EngineParams toEngineParams (const FactoryPreset& preset, EngineParams base = {});

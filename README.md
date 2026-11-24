@@ -95,33 +95,36 @@ User presets live in `~/.config/WARMFUL/user_presets.xml` (Linux), `~/Library/Ap
 (macOS) or `%APPDATA%\WARMFUL\` (Windows) and are shared by every instance, like the pedal's memory.
 CAPTURE loops are not stored, as on the pedal.
 
-### Factory presets: the MKG set
+### Factory presets: 50 sounds in 7 packs
 
-Ten sounds inspired by Mk.gee's publicly documented rig (not endorsed by him). Each piece of his
-chain is mapped onto the module that plays its role, including the module order. Three ways to load them:
+Each pack is built from publicly documented sources (interviews, credits, rig rundowns) and is
+**inspired by** the artist, not endorsed by them. Every piece of a rig is mapped onto the module that
+plays its role, including the module order. Three ways to load them:
 
 - the **preset bar** under the footswitches: ◀ ▶ step through them, click the name to open the browser;
-- the **FACTORY** tab of the preset browser (also: hold the BYPASS footswitch);
+- the **FACTORY** tab of the preset browser, one sub-tab per pack (also: hold the BYPASS footswitch);
 - your DAW's preset/program menu (entry 0 "(current settings)" is a no-op, so a host never resets a project).
 
 Load one, tweak it, and COPY/SAVE it into a user slot. All of them assume MEDIUM calibration and are
-level-matched to within 1 dB of the dry signal. The version is shown under the logo (e.g. `v0.2.1`).
+level-matched to within 1 dB of the dry signal. The version is shown under the logo (e.g. `v0.3.0`).
 
-| Preset | Idea |
-|---|---|
-| MKG 424 Edge | Jaguar into a pushed Tascam 424 preamp: elastic clean, slow CE-2 wobble, small room |
-| MKG Portastudio Crush | the 424 past the point of control: dark, ~30 dB of squash, half-broken |
-| MKG Baritone Drop | DigiTech Drop-style −5 semitones *before* the preamp (baritone weight) |
-| MKG Distorted Room | reverb before the preamp (Rainger Reverb-X idea): the room breaks up as you dig in |
-| MKG Dream Wobble | seasick CE-2 vibrato (~0.8 Hz, ±22 cents) into a worn cassette |
-| MKG Bowed Pad | Roland VG-8 "Bowed Pad" idea: volume swells into a drifting hall |
-| MKG Mood Smear | Chase Bliss MOOD-like micro-loops (~230 ms); twist TIME or record a GESTURE |
-| MKG Rockman Clean | compressor-first 80s headphone-amp clean: doubled, short echo |
-| MKG Two Star Lead | blown-out fuzz lead with a wonky DD-style tape echo |
-| MKG Quadraverb Grain | short grainy early-digital room crushed by the preamp after it |
+| Pack | Sources it is built from | Presets |
+|---|---|---|
+| **MK.GEE** (MKG) | 24" Jaguar on baritone flatwounds into a Tascam 424 preamp, DigiTech Drop, CE-2W vibrato, Rainger Reverb-X before the preamp, MOOD, VG-8, Quadraverb, DD-20 | 424 Edge, Portastudio Crush, Baritone Drop, Distorted Room, Dream Wobble, Bowed Pad, Mood Smear, Rockman Clean, Two Star Lead, Quadraverb Grain |
+| **DIJON** (DIJ) | *Absolutely*: one omni C414 in a boxy room through a hot 73-style preamp, mids cut; *Baby*: fuzz guitar, reversed/gated parts, defective-deck skips, huge reverbs; Fairfield Shallow Water; Mk.gee's Reverb-X and BF-2 in his band | Omni Room, Big Mike's Swell, Shallow Water, Lightning Riff, Yamaha Fuzz, Fever Storm, Gated Rewind, Gated Bootleg, Busted Deck, Freak It Echo |
+| **PRINCE** (PRN) | MadCat into a clean Mesa Mark II; DS-1/SD-1, BF-2 (Rate 3, Res 10), CE-2, DM-2, OC-2; "Kiss" guitar dry and gated to the hi-hat with a little tape delay; "Purple Rain" clean edge into plate/hall | Crazy Flange Solo, Doves Octave Fuzz, Kiss Gate, Purple Rain Chords, Rain Solo, Nonlin Stab, DI Rhythm CE-2 |
+| **BLUNT** (BLT) | tape-recorded, overdubbed and looped records; reverb-washed jangle (*Black Metal*), granular loops and whole-mix phasing (*Black Metal 2*), pirate-radio grit (Babyfather), Joanne Robertson's untuned strums. No gear is documented: built from the recordings | Black Metal Jangle, Tape Ghosts, Semtex Loop, ZaZa Phase, Pirate Chop, Packet Stutter, Gated Room, Untuned Strum |
+| **YANO** (YNO) | Yamaha parlor DI'd into a Tascam 244; *portrait of a dog* cut live through a Midas console to 1" Ampex with a hallway plate on every song; *Heavy Loop* jams | 4-Track Parlor, Marquee Plate, Strawberry Fuzz, Heavy Loop, Steel Door |
+| **MESA** (MSA) | Junior Mesa's self-recorded glam-funk/soul: "an old cassette in a car's rattling speakers", Beatlesque fuzz outros. No gear is documented: built from press descriptions | Cops Cassette, Glam Funk Phase, Grip Outro, Empty & Warm, Velcro Sputter, Verb Into Fuzz |
+| **BARI JAG** (BAR) | baritone Jaguar: Bb/C standard on flatwounds (PITCH −6/−4 st first, then the preamp), strangle switch (~140 Hz high-pass), rhythm circuit (~2.2 kHz low-pass), Bass VI octave-down doubling | Bb Flat Jag, Strangle Lead, Flatwound Thump, Bass VI Tic-Tac |
+
+Gated sounds use the pedal's own effects: TREMOLO at full AMOUNT is a hard 16th-note gate (Kiss Gate
+chops at 7.4 Hz, ~111 BPM; tap tempo to lock it to a song), a starved FUZZ after a reverb sputters the
+tail shut (Reverb-X), and SWELL placed after SPACE closes the reverb when you mute the strings.
 
 Every knob, secondary control and routing is listed in [`docs/PRESETS.md`](docs/PRESETS.md), also as
-clock positions so the same sounds can be dialled on a physical Chroma Console.
+clock positions so the same sounds can be dialled on a physical Chroma Console. The research behind
+the packs, with links, is in [`docs/research/`](docs/research/README.md).
 
 ## Building
 

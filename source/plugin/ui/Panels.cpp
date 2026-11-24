@@ -234,6 +234,21 @@ PresetPanel::PresetPanel (WarmfulProcessor& p, Mode m)
         addAndMakeVisible (slotButtons[(size_t) s]);
     }
 
+    // Factory packs (one per artist/theme): open on the pack of the loaded factory preset.
+    const auto packs = factoryPacks();
+    const int loaded = processor.getCurrentFactoryPreset();
+    for (int k = 0; k < (int) packs.size() && k < (int) packButtons.size(); ++k)
+    {
+        auto& pb = packButtons[(size_t) k];
+        pb.setButtonText (packs[(size_t) k].title);
+        pb.setRadioGroupId (2);
+        pb.setClickingTogglesState (true);
+        pb.onClick = [this, k] { pack = k; refresh(); resized(); };
+        addChildComponent (pb);
+        if (loaded >= 0 && std::string (packs[(size_t) k].id) == factoryPresets()[(size_t) loaded].pack)
+            pack = k;
+    }
+
     hint.setFont (theme::font (11.0f));
     hint.setColour (juce::Label::textColourId, theme::stripText.withAlpha (0.7f));
     hint.setJustificationType (juce::Justification::topLeft);
@@ -258,7 +273,8 @@ void PresetPanel::slotClicked (int slotInBank)
 {
     if (bank == kFactoryBank)
     {
-        processor.loadFactoryPreset (slotInBank);
+        if (slotInBank < (int) packPresets.size())
+            processor.loadFactoryPreset (packPresets[(size_t) slotInBank]);
         refresh();
         return;
     }
@@ -277,20 +293,33 @@ void PresetPanel::refresh()
     for (int b = 0; b < (int) bankButtons.size(); ++b)
         bankButtons[(size_t) b].setToggleState (b == bank, juce::dontSendNotification);
 
+    const auto packs = factoryPacks();
+    for (int k = 0; k < (int) packButtons.size(); ++k)
+    {
+        packButtons[(size_t) k].setVisible (bank == kFactoryBank && k < (int) packs.size());
+        packButtons[(size_t) k].setToggleState (k == pack, juce::dontSendNotification);
+    }
+
     if (bank == kFactoryBank)
     {
         const auto factory = factoryPresets();
         const int active = processor.getCurrentFactoryPreset();
+        packPresets.clear();
+        for (int i = 0; i < (int) factory.size(); ++i)
+            if (std::string (factory[(size_t) i].pack) == packs[(size_t) pack].id)
+                packPresets.push_back (i);
+
         for (int s = 0; s < (int) slotButtons.size(); ++s)
         {
             auto& btn = slotButtons[(size_t) s];
-            const bool used = s < (int) factory.size();
+            const bool used = s < (int) packPresets.size();
             btn.setVisible (used);
             if (! used)
                 continue;
-            btn.setButtonText (factory[(size_t) s].name);
-            btn.setTooltip (factory[(size_t) s].description);
-            btn.setToggleState (s == active, juce::dontSendNotification);
+            const auto& preset = factory[(size_t) packPresets[(size_t) s]];
+            btn.setButtonText (preset.name);
+            btn.setTooltip (preset.description);
+            btn.setToggleState (packPresets[(size_t) s] == active, juce::dontSendNotification);
             btn.setColour (juce::TextButton::textColourOffId, theme::stripText);
             btn.setEnabled (true);
         }
@@ -329,13 +358,25 @@ void PresetPanel::resized()
     const int bw = banks.getWidth() / visibleBanks;
     for (int b = 0; b < visibleBanks; ++b)
         bankButtons[(size_t) b].setBounds (banks.removeFromLeft (bw).reduced (3, 0));
-    r.removeFromTop (10);
+    r.removeFromTop (6);
+
+    if (bank == kFactoryBank)
+    {
+        auto packRow = r.removeFromTop (24);
+        const int count = std::max (1, (int) factoryPacks().size());
+        const int pw = packRow.getWidth() / count;
+        for (int k = 0; k < count && k < (int) packButtons.size(); ++k)
+            packButtons[(size_t) k].setBounds (packRow.removeFromLeft (pw).reduced (2, 0));
+        r.removeFromTop (6);
+    }
+    else
+        r.removeFromTop (4);
 
     auto grid = r.removeFromTop (4 * 34);
     if (bank == kFactoryBank)
     {
         // Two wide columns: factory names are longer than slot numbers.
-        const int rows = 5, rh = grid.getHeight() / rows, cw = grid.getWidth() / 2;
+        const int rows = kFactoryGridRows, rh = grid.getHeight() / rows, cw = grid.getWidth() / 2;
         for (int s = 0; s < (int) slotButtons.size(); ++s)
             slotButtons[(size_t) s].setBounds (juce::Rectangle<int> (grid.getX() + (s / rows) * cw, grid.getY() + (s % rows) * rh, cw, rh).reduced (3, 2));
     }
